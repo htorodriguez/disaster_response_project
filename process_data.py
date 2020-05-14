@@ -1,24 +1,16 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed May 13 15:35:43 2020
-
-@author: hto_r
-"""
-
-# import packages
 import sys
 import pandas as pd
 from sqlalchemy import create_engine
 
-def run_process_data(data_path_messages, data_path_categories):
+def load_data(messages_filepath, categories_filepath):
     """
-    Reads, cleans and transform two .csv files with the messages and the labelling
-    Returns 1 dataframe with the cleaned data 
+    Reads and merges two .csv files with the messages and the labelling
+    Returns 1 dataframe with the  data 
     """
     #read in the .csv data files
-    messages = pd.read_csv(data_path_messages)
-    categories = pd.read_csv(data_path_categories)
-    #Mmerge both data frames
+    messages = pd.read_csv(messages_filepath)
+    categories = pd.read_csv(categories_filepath)
+    #Merge both data frames
     df = messages.merge(categories)
     #makes a new df with expanded categories
     categories = df.categories.str.split(pat=";", expand=True)
@@ -26,7 +18,6 @@ def run_process_data(data_path_messages, data_path_categories):
     row = categories.iloc[0].tolist()
     category_colnames = [x.split("-")[0] for x in row]
     categories.columns = category_colnames
-    
     for column in categories:
         # set each value to be the last character of the string
         categories[column] = categories[column].str.split(pat="-", expand=True)[1]
@@ -36,28 +27,53 @@ def run_process_data(data_path_messages, data_path_categories):
     
     df.drop('categories', axis=1, inplace=True)
     df = pd.concat([df, categories], axis=1)
+    
+    return(df)
+
+def clean_data(df):
+    """
+    Reads and cleans a data frame
+    """
     # drop duplicates
     df=df[~df.duplicated()]
     #drop the rows with a value of 2 in 'related' in order to obtain binary data
     df=df[~pd.Series(df.related==2)]
     return (df)
 
-def export_data(df, database_path):
+
+def save_data(df, database_filename):
     """
     Exports a dataframe into a table names 'messages_cleaned' of a sql lite database 
     """
-    engine = create_engine('sqlite:///'+database_path)
-    df.to_sql('messages_cleaned', engine, index=False)
+    engine = create_engine('sqlite:///'+database_filename)
+    df.to_sql('messages_cleaned', engine, index=False) 
+
+
+def main():
+    if len(sys.argv) == 4:
+
+        messages_filepath, categories_filepath, database_filepath = sys.argv[1:]
+
+        print('Loading data...\n    MESSAGES: {}\n    CATEGORIES: {}'
+              .format(messages_filepath, categories_filepath))
+        df = load_data(messages_filepath, categories_filepath)
+
+        print('Cleaning data...')
+        df = clean_data(df)
+        
+        print('Saving data...\n    DATABASE: {}'.format(database_filepath))
+        save_data(df, database_filepath)
+        
+        print('Cleaned data saved to database!')
+    
+    else:
+        print('Please provide the filepaths of the messages and categories '\
+              'datasets as the first and second argument respectively, as '\
+              'well as the filepath of the database to save the cleaned data '\
+              'to as the third argument. \n\nExample: python process_data.py '\
+              'disaster_messages.csv disaster_categories.csv '\
+              'DisasterResponse.db')
 
 
 if __name__ == '__main__':
-    """
-    The script takes the file paths of the two datasets and database, 
-    cleans the datasets, and stores the clean data into a SQLite database 
-    in the specified database file path.
-    """
-    data_path_messages = sys.argv[1]# get filename of data file 1
-    data_path_categories = sys.argv[2]# get filename of data file 2
-    database_path = sys.argv[3]# get filename of database to be stored
-    df=run_process_data(data_path_messages, data_path_categories)  # run data pipeline
-    export_data(df, database_path)
+    main()

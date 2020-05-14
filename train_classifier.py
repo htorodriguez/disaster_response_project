@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed May 13 15:35:43 2020
-
-@author: hto_r
-"""
-
 # import packages
 import sys
 import pandas as pd
@@ -25,16 +18,17 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.model_selection import train_test_split
 import pickle
+import sys
 
 
-def load_data(database_path):
+def load_data(database_filepath):
     """
     Loads a table 'messages_cleaned' for the given sqllite database 
     Returns X and Y vectors of input and outputs and the category names
     """
     
     # read in file
-    engine = create_engine('sqlite:///'+database_path)
+    engine = create_engine('sqlite:///'+database_filepath)
     df = pd.read_sql("SELECT * FROM messages_cleaned", engine)
     X =df.message 
     Y =df.iloc[:,4:]
@@ -42,7 +36,6 @@ def load_data(database_path):
     Y=np.array([Y.iloc[i,:].tolist() for i in range(Y.shape[0])])
     
     return X, Y, category_names
-
 
 
 def tokenize(text):
@@ -81,7 +74,8 @@ def build_model():
 
     return model_pipeline
 
-def predict_and_evaluate(model, X_test, Y_test, category_names):
+
+def evaluate_model(model, X_test, Y_test, category_names):
     """
     Predicts a Y vector based on a model and a X_Test dataset
     The f1 score, precision and recall for the test set is outputted 
@@ -98,50 +92,41 @@ def predict_and_evaluate(model, X_test, Y_test, category_names):
         print('Classification report of: '+ col+'\n')
         print(classification_report(y_test, y_pred))
 
-
-def train(X, Y, model, category_names):
-    """
-    Splits the dataset into test and train set
-    Trains the model only on the train set
-    Uses the test set to perdict and evaluate
-    """
-    
-    # train test split
-    X_train, X_test, Y_train, Y_test = train_test_split(X, Y)
-
-    # fit model
-    model.fit(X_train, Y_train)
-
-    # output model test results
-
-    predict_and_evaluate(model, X_test, Y_test,category_names)
-    return model
-
-
-def export_model(model, model_path):
+        
+def save_model(model, model_filepath):
     """
     Export model as a pickle file to the model_path
     """
-    pickle.dump(model, open(model_path, 'wb'))
+    pickle.dump(model, open(model_filepath, 'wb'))
 
 
-def run_pipeline(database_path, model_path):
-    """
-    Reads the data, builds the model, trains the model and exports
-    """
-    
-    X, Y, category_names = load_data(database_path)  # run ETL pipeline
-    model = build_model()  # build model pipeline
-    model = train(X, Y, model, category_names)  # train model pipeline
-    export_model(model, model_path)  # save model
+def main():
+    if len(sys.argv) == 3:
+        database_filepath, model_filepath = sys.argv[1:]
+        print('Loading data...\n    DATABASE: {}'.format(database_filepath))
+        X, Y, category_names = load_data(database_filepath)
+        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2)
+        
+        print('Building model...')
+        model = build_model()
+        
+        print('Training model...')
+        model.fit(X_train, Y_train)
+        
+        print('Evaluating model...')
+        evaluate_model(model, X_test, Y_test, category_names)
+
+        print('Saving model...\n    MODEL: {}'.format(model_filepath))
+        save_model(model, model_filepath)
+
+        print('Trained model saved!')
+
+    else:
+        print('Please provide the filepath of the disaster messages database '\
+              'as the first argument and the filepath of the pickle file to '\
+              'save the model to as the second argument. \n\nExample: python '\
+              'train_classifier.py ../data/DisasterResponse.db classifier.pkl')
 
 
 if __name__ == '__main__':
-    """
-    The script takes the database file path and model file path, creates and 
-    trains a classifier, and stores the classifier into a pickle file to the 
-    specified model file path.
-    """
-    database_path = sys.argv[1]# get filename of database
-    model_path = sys.argv[2]# get filename of database
-    run_pipeline(database_path, model_path)  # run data pipeline
+    main()
