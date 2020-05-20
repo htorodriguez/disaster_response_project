@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 
 def load_data(messages_filepath, categories_filepath):
     """
-    Reads and merges two .csv files with the messages and the labelling
+    Reads and merges two .csv files with the messages and the labelling data
     Returns 1 dataframe with the  data 
     """
     #read in the .csv data files
@@ -32,7 +32,8 @@ def load_data(messages_filepath, categories_filepath):
 
 def clean_data(df):
     """
-    Reads and cleans a data frame
+    reads in a dataframe. Removes duplicates and drops rows with unexpected values
+    Returns the cleaned dataframe
     """
     # drop duplicates
     df=df[~df.duplicated()]
@@ -43,7 +44,8 @@ def clean_data(df):
 
 def save_data(df, database_filename):
     """
-    Exports a dataframe into a table names 'messages_cleaned' of a sql lite database 
+    Takes a dataframe and exports a dataframe into a table names 'messages_cleaned' of a sql lite database
+    Does not return anything
     """
     engine = create_engine('sqlite:///'+database_filename)
     df.to_sql('messages_cleaned', engine, index=False) 
